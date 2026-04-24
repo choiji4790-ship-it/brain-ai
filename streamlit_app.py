@@ -3,54 +3,64 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-st.set_page_config(page_title="Medical EEG Simulator", layout="wide")
-st.title("🏥 의료용 실시간 뇌파 시뮬레이션 및 진단 시스템")
+st.set_page_config(page_title="Advanced Medical EEG", layout="wide")
 
-# 1. 사이드바: 환자 정보 및 증상 설정
-st.sidebar.header("Patient Status")
-patient_name = st.sidebar.text_input("환자 성함", "Unknown")
-condition = st.sidebar.selectbox("현재 증상 선택", 
-    ["Normal (정상)", "Seizure (발작/간질)", "Deep Sleep (깊은 수면)", "High Stress (고도의 긴장)"])
+# CSS를 활용해 뇌 부위 시각화 스타일 정의
+st.markdown("""
+    <style>
+    .brain-part { padding: 20px; border-radius: 10px; text-align: center; color: white; font-weight: bold; }
+    .active { background-color: #ff4b4b; box-shadow: 0px 0px 15px #ff4b4b; }
+    .inactive { background-color: #31333F; border: 1px solid #4B4B4B; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# 증상별 주파수 및 부위 설정
-cond_map = {
-    "Normal (정상)": {"freq": 10, "label": "Alpha파", "region": "후두엽 (안정)", "desc": "안정적인 휴식 상태입니다."},
-    "Seizure (발작/간질)": {"freq": 35, "label": "Gamma파 (이상)", "region": "전두엽/측두엽 (과활성)", "desc": "뇌의 비정상적인 전기 활동이 감지됩니다!"},
-    "Deep Sleep (깊은 수면)": {"freq": 2, "label": "Delta파", "region": "뇌 전체 (서파)", "desc": "깊은 수면 단계에 진입했습니다."},
-    "High Stress (고도의 긴장)": {"freq": 20, "label": "High Beta파", "region": "전두엽 (판단/불안)", "desc": "스트레스 수치가 높고 뇌가 과부하 상태입니다."}
+st.title("🏥 차세대 AI 의료 뇌파 시뮬레이션")
+
+# 사이드바 설정
+condition = st.sidebar.selectbox("진단 모드 선택", ["정상 상태", "간질/발작", "수면 상태", "극도의 불안"])
+is_running = st.sidebar.toggle("실시간 분석 가동", value=True)
+
+# 뇌 부위 데이터 매핑
+mapping = {
+    "정상 상태": {"freq": 10, "part": "후두엽", "color": "#1f77b4", "status": "안정"},
+    "간질/발작": {"freq": 40, "part": "전두엽", "color": "#ff4b4b", "status": "위험"},
+    "수면 상태": {"freq": 3, "part": "뇌 전체", "color": "#7d3cff", "status": "서파"},
+    "극도의 불안": {"freq": 25, "part": "전두엽/측두엽", "color": "#ffa500", "status": "과활성"}
 }
 
-# 2. 메인 화면 레이아웃
-col1, col2 = st.columns([2, 1])
+# 실시간 데이터 저장을 위한 리스트
+if 'data_history' not in st.session_state:
+    st.session_state.data_history = np.zeros(100)
+
+# 화면 레이아웃
+c1, c2 = st.columns([2, 1])
 
 placeholder = st.empty()
 
-while True:
+while is_running:
     with placeholder.container():
-        current_cond = cond_map[condition]
-        t = np.linspace(0, 1, 500)
+        # 데이터 생성 (흐르는 효과를 위해 마지막 값을 밀어내고 새 값 추가)
+        info = mapping[condition]
+        new_val = np.sin(time.time() * info["freq"]) + np.random.normal(0, 0.2)
+        st.session_state.data_history = np.append(st.session_state.data_history[1:], new_val)
         
-        # 뇌파 생성 (증상에 따라 주파수 변화)
-        noise = np.random.normal(0, 0.2, 500)
-        signal = np.sin(2 * np.pi * current_cond["freq"] * t) + noise
-        
-        with col1:
-            st.subheader(f"📊 실시간 뇌파 그래프 - {current_cond['label']}")
-            fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(t, signal, color='red' if "Seizure" in condition else 'blue')
+        with c1:
+            st.subheader(f"🌐 실시간 뇌파 스트리밍 ({info['part']})")
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.plot(st.session_state.data_history, color=info["color"], linewidth=2)
             ax.set_ylim(-3, 3)
-            ax.grid(True, alpha=0.3)
+            ax.axis('off') # 의료기기 느낌을 위해 축 숨기기
             st.pyplot(fig)
             
-        with col2:
-            st.subheader("🔍 AI 진단 결과")
-            st.info(f"**환자명:** {patient_name}")
-            st.warning(f"**활성 부위:** {current_cond['region']}")
-            st.write(f"**상태 요약:** {current_cond['desc']}")
+        with c2:
+            st.subheader("🧠 뇌 활성 부위 모니터")
+            # 뇌 부위 시각화 (간단한 HTML/CSS 활용)
+            parts = ["전두엽", "측두엽", "두정엽", "후두엽"]
+            for p in parts:
+                active_class = "active" if p in info["part"] or info["part"] == "뇌 전체" else "inactive"
+                st.markdown(f'<div class="brain-part {active_class}">{p}</div>', unsafe_allow_html=True)
+                st.write("") # 간격
             
-            # 진행 바 시각화 (자극 강도)
-            intensity = current_cond["freq"] * 2.5
-            st.write("뇌 활성도 강도")
-            st.progress(min(100, int(intensity)))
+            st.metric("현재 자극 주파수", f"{info['freq']} Hz", delta=info["status"])
 
-        time.sleep(0.5)
+        time.sleep(0.05) # 빠른 업데이트 속도
