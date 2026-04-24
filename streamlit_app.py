@@ -3,74 +3,86 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-# 페이지 설정 및 레이아웃 고정
-st.set_page_config(page_title="Professional EEG Monitor", layout="wide")
+st.set_page_config(page_title="Brain Mapping AI", layout="wide")
 
-# CSS 스타일 (박스 디자인)
+# [핵심] CSS로 뇌 모양과 활성 애니메이션 만들기
 st.markdown("""
     <style>
-    .brain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .part { padding: 15px; border-radius: 8px; text-align: center; color: white; font-weight: bold; }
-    .active { background-color: #FF4B4B; box-shadow: 0 0 15px #FF4B4B; border: 2px solid white; }
-    .inactive { background-color: #262730; border: 1px solid #4B4B4B; color: #808495; }
+    .brain-container {
+        position: relative; width: 300px; height: 250px; 
+        background: #1e1e1e; border-radius: 50% 50% 40% 40%;
+        margin: 20px auto; border: 2px solid #444;
+    }
+    .lobe {
+        position: absolute; border: 1px solid #333; 
+        display: flex; align-items: center; justify-content: center;
+        font-size: 12px; transition: 0.3s; color: #888;
+    }
+    /* 뇌 부위별 위치 설정 */
+    .frontal { top: 20px; left: 75px; width: 150px; height: 80px; border-radius: 40% 40% 0 0; }
+    .temporal { top: 110px; left: 50px; width: 100px; height: 70px; border-radius: 20%; }
+    .parietal { top: 100px; left: 150px; width: 100px; height: 70px; border-radius: 20%; }
+    .occipital { top: 170px; left: 100px; width: 100px; height: 60px; border-radius: 0 0 50% 50%; }
+    
+    /* 활성화 애니메이션 */
+    .active-lobe {
+        background-color: rgba(255, 75, 75, 0.8) !important;
+        color: white !important; font-weight: bold;
+        box-shadow: 0 0 20px #ff4b4b; transform: scale(1.05);
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏥 전문 의료용 실시간 뇌파 모니터")
+st.title("🧠 AI 실시간 뇌 기능 매핑 시스템")
 
-# 진단 데이터 설정
 mapping = {
-    "정상 상태": {"freq": 10, "active": ["후두엽"], "color": "#1f77b4", "note": "Alpha파 (안정)"},
-    "간질/발작": {"freq": 35, "active": ["전두엽", "측두엽"], "color": "#FF4B4B", "note": "고주파 (위험!)"},
-    "수면 상태": {"freq": 3, "active": ["전두엽", "두정엽", "측두엽", "후두엽"], "color": "#7D3CFF", "note": "Delta파 (수면)"},
-    "극도의 불안": {"freq": 22, "active": ["전두엽"], "color": "#FFA500", "note": "Beta파 (긴장)"}
+    "정상 상태": {"freq": 10, "active": ["occipital"], "note": "Alpha파 (안정)", "color": "#1f77b4"},
+    "간질/발작": {"freq": 35, "active": ["frontal", "temporal"], "note": "고주파 (위험!)", "color": "#FF4B4B"},
+    "수면 상태": {"freq": 3, "active": ["frontal", "parietal", "temporal", "occipital"], "note": "Delta파 (수면)", "color": "#7D3CFF"},
+    "극도의 불안": {"freq": 22, "active": ["frontal"], "note": "Beta파 (긴장)", "color": "#FFA500"}
 }
 
-# 사이드바
 condition = st.sidebar.selectbox("진단 모드 선택", list(mapping.keys()))
-run = st.sidebar.toggle("모니터링 시작", value=True)
+run = st.sidebar.toggle("모니터링 시스템 가동", value=True)
 
-# 데이터 기록용 세션 상태
-if 'eeg_hist' not in st.session_state:
-    st.session_state.eeg_hist = np.zeros(100)
+if 'eeg_data' not in st.session_state:
+    st.session_state.eeg_data = np.zeros(100)
 
-# [핵심] 화면 전체를 덮어씌울 하나의 커다란 빈 바구니 생성
-main_container = st.empty()
+main_view = st.empty()
 
 while run:
     conf = mapping[condition]
-    
-    # 새로운 데이터 포인트 생성 (부드러운 흐름을 위해 sin값 사용)
     new_val = np.sin(time.time() * conf["freq"]) + np.random.normal(0, 0.1)
-    st.session_state.eeg_hist = np.append(st.session_state.eeg_hist[1:], new_val)
+    st.session_state.eeg_data = np.append(st.session_state.eeg_data[1:], new_val)
     
-    # 바구니(main_container) 안에 모든 내용을 집어넣음 (이전 내용을 덮어씀)
-    with main_container.container():
+    with main_view.container():
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.subheader(f"🌐 실시간 뇌파 신호 ({conf['note']})")
+            st.subheader(f"🌐 실시간 뇌파 신호: {conf['note']}")
             fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(st.session_state.eeg_hist, color=conf["color"], linewidth=2)
+            ax.plot(st.session_state.eeg_data, color=conf['color'], linewidth=2)
             ax.set_ylim(-2.5, 2.5)
             ax.set_facecolor('#0E1117')
-            ax.grid(color='#4B4B4B', linestyle='--', alpha=0.3)
+            ax.grid(alpha=0.1)
             st.pyplot(fig)
-            plt.close(fig) # 메모리 폭발 방지
-            
-        with col2:
-            st.subheader("🧠 뇌 활성 영역")
-            all_parts = ["전두엽", "측두엽", "두정엽", "후두엽"]
-            html_code = '<div class="brain-grid">'
-            for p in all_parts:
-                st_class = "active" if p in conf["active"] else "inactive"
-                html_code += f'<div class="part {st_class}">{p}</div>'
-            html_code += '</div>'
-            st.markdown(html_code, unsafe_allow_html=True)
-            
-            st.write("---")
-            st.metric("자극 주파수", f"{conf['freq']} Hz")
-            st.info(f"**AI 진단:** {condition} 패턴 분석 완료")
+            plt.close(fig)
 
-    # 업데이트 속도 조절 (너무 빠르면 서버가 못 따라가니 0.1 정도로)
+        with col2:
+            st.subheader("📍 활성 부위 매핑")
+            # 뇌 모양 시각화 HTML
+            def get_class(lobe_name):
+                return "active-lobe" if lobe_name in conf["active"] else ""
+
+            brain_html = f"""
+            <div class="brain-container">
+                <div class="lobe frontal {get_class('frontal')}">전두엽</div>
+                <div class="lobe temporal {get_class('temporal')}">측두엽</div>
+                <div class="lobe parietal {get_class('parietal')}">두정엽</div>
+                <div class="lobe occipital {get_class('occipital')}">후두엽</div>
+            </div>
+            """
+            st.markdown(brain_html, unsafe_allow_html=True)
+            st.metric("자극 빈도", f"{conf['freq']} Hz")
+
     time.sleep(0.1)
